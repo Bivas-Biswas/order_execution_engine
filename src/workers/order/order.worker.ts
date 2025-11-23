@@ -88,7 +88,8 @@ const worker = new Worker(
         `UPDATE orders
          SET status=$1,
              tx_hash=$2,
-             execution_price=$3
+             execution_price=$3,
+             updated_at = now()
          WHERE id=$4`,
         ["confirmed", exec.txHash, exec.executionPrice, orderId]
       );
@@ -110,7 +111,8 @@ const worker = new Worker(
       await dbPool.query(
         `UPDATE orders
          SET status=$1,
-             error=$2
+             error=$2,
+             updated_at = now()
          WHERE id=$3`,
         ["failed", msg, orderId]
       );
