@@ -7,9 +7,8 @@
         "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
         "build": "tsc",
         "start": "node dist/server.js",
-        "migrate": "node dist/migrate.js",
-        "worker": "node dist/queue/worker.js",
-        "worker:dev": "ts-node-dev --respawn --transpile-only src/queue/worker.ts"
+        "worker": "node dist/workers/order/order.worker.ts",
+        "worker:dev": "ts-node-dev --respawn --transpile-only src/workers/order/order.worker.ts"
     },
     "dependencies": {
         "@fastify/type-provider-typebox": "^6.1.0",

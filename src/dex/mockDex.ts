@@ -7,7 +7,7 @@ export type DexQuote = {
 };
 
 
-function sleep(ms: number) {
+export function sleep(ms: number) {
     return new Promise((res) => setTimeout(res, ms));
 }
 
@@ -40,6 +40,10 @@ export async function getBestQuote(input: string, output: string, amount: number
 
 
     return r1.price >= r2.price ? r1 : r2; // choose higher output per input
+}
+
+export async function mockCreateTransaction(){
+    
 }
 
 
