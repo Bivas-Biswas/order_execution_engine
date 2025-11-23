@@ -26,6 +26,14 @@ const publishStatus = async (orderId: string, status: string, extra: any = {}) =
   );
 };
 
+const loggerDex = (type: 'INFO' | 'ERROR', orderId: string, msg: string) => {
+  if(type === 'INFO'){
+    console.log(`[${type}][DEX:${orderId}] ${msg}`);
+  } else {
+    console.error(`[${type}][DEX:${type}:${orderId}] ${msg}`);
+  }
+}
+
 const worker = new Worker(
   "orders",
   async (job) => {
@@ -34,18 +42,24 @@ const worker = new Worker(
     try {
       // routing
       await publishStatus(orderId, "routing");
+      loggerDex("INFO", orderId, 'Routing started')
       const best = await getBestQuote(inputMint, outputMint, amount);
 
+      loggerDex("INFO", orderId, 'BestQuote selected: ' + best);
+      
       // building
       await publishStatus(orderId, "building");
-
+      
+      loggerDex("INFO", orderId, 'Creating transaction: ' + best);
       // create transaction
       await mockCreateTransaction();
 
+      loggerDex("INFO", orderId, 'Submitting transaction: ' + best);
       // submitted
       await publishStatus(orderId, "submitted");
 
       // simulate execution
+      // if faild retry 3 times
       const handleMockExecute = async () => {
         for (let attempt = 1; attempt <= 3; attempt++) {
           try {
@@ -57,15 +71,14 @@ const worker = new Worker(
             );
             return exec; // success
           } catch (err) {
-            console.error(`Exchange Server Error`, err);
-
+            loggerDex("ERROR", orderId, "Exchnage server issue. Retring... " + attempt);
             // exponential backoff delay
             await new Promise((r) => setTimeout(r, attempt * 500));
           }
         }
 
         // All attempts failed throw
-        throw new Error("Swap execution failed after 3 retries");
+        throw new Error("Transaction execution failed!");
       };
 
       const exec = await handleMockExecute();
@@ -80,6 +93,8 @@ const worker = new Worker(
         ["confirmed", exec.txHash, exec.executionPrice, orderId]
       );
 
+      loggerDex("INFO", orderId, "Transaction confirmed.");
+
       await publishStatus(orderId, "confirmed", {
         txHash: exec.txHash,
         executionPrice: exec.executionPrice,
@@ -89,6 +104,7 @@ const worker = new Worker(
       return { txHash: exec.txHash };
     } catch (err: any) {
       const msg = err?.message || String(err);
+      loggerDex("ERROR", orderId, msg);
 
       // update database with failure
       await dbPool.query(
