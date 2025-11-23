@@ -1,6 +1,9 @@
 import { Pool } from 'pg';
 
-const connectionString = process.env.POSTGRES_URL || 'postgresql://postgres:postgres@localhost:5432/market_orders';
+import { env } from '../config/env';
+
+const connectionString = env.db.url;
+
 export const pool = new Pool({ connectionString });
 
 
