@@ -29,6 +29,22 @@ describe("Order body validation", () => {
     expect(res.status).toBe(400);
   });
 
+  it("reject when slippage_pct is = 0", async () => {
+    const res = await request(API_BASE_URL)
+      .post("/api/orders/execute")
+      .send({ inputMint: "BTC", outputMint: "not-a-number", amount: 1.5, slippage_pct: 0 });
+
+    expect(res.status).toBe(400);
+  })
+
+  it("reject when slippage_pct is < 0", async () => {
+    const res = await request(API_BASE_URL)
+      .post("/api/orders/execute")
+      .send({ inputMint: "BTC", outputMint: "not-a-number", amount: 1.5, slippage_pct: -1 });
+
+    expect(res.status).toBe(400);
+  })
+
 });
 
 describe("Order Execution + WebSocket full flow", () => {
@@ -49,52 +65,79 @@ describe("Order Execution + WebSocket full flow", () => {
     const wsUrl = `${API_BASE_URL.replace("http", "ws")}/api/orders/ws?orderId=${orderId}`;
     const ws = new WebSocket(wsUrl);
 
-    await new Promise((resolve, reject) => {
-      ws.on("open", resolve);
-      ws.on("error", reject);
-    });
+    const messages: any[] = [];
 
-    let firstMessage: any;
-    let lastMessage: any;
-
-    lastMessage = await new Promise<string>((resolve, reject) => {
-      const messages: string[] = [];
-
-      const timeout = setTimeout(() => {
-        if (messages.length === 0) {
-          reject(new Error("No WebSocket messages received"));
-        } else {
-          resolve(messages[messages.length - 1]);
-        }
-      }, 1000);
-
+    // Collect messages until socket closes
+    await new Promise<void>((resolve, reject) => {
       ws.on("message", (msg) => {
         const text = JSON.parse(msg.toString());
-
-        if (!firstMessage) {
-          firstMessage = text;
-        }
-
         messages.push(text);
+      });
 
-        if (
-          text.status === "success" ||
-          text.status === "failed"
-        ) {
-          clearTimeout(timeout);
-          resolve(text);
-        }
+      ws.on("close", () => {
+        resolve();
       });
 
       ws.on("error", reject);
     });
 
-    ws.close();
+    // Now messages[] contains the full lifecycle
+    expect(messages.length).toBeGreaterThan(0);
+
+    const firstMessage = messages[0];
+    const lastMessage = messages[messages.length - 1];
 
     expect(firstMessage.type).toBe("snapshot");
+
     expect(
-      lastMessage.status === "success" || lastMessage.status !== "failed"
+      lastMessage.status === "confirmed" || lastMessage.status === "failed"
     ).toBe(true);
+  });
+
+
+  it("reject when slippage_pct is < 0.01", async () => {
+    const res = await request(API_BASE_URL)
+      .post("/api/orders/execute")
+      .send({
+        inputMint: "SOL",
+        outputMint: "USDC",
+        amount: 1.5,
+        slippage_pct: 0.001
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.orderId).toBeDefined();
+
+    const orderId = res.body.orderId;
+
+    const wsUrl = `${API_BASE_URL.replace("http", "ws")}/api/orders/ws?orderId=${orderId}`;
+    const ws = new WebSocket(wsUrl);
+
+    const messages: any[] = [];
+
+    // Collect messages until socket closes
+    await new Promise<void>((resolve, reject) => {
+      ws.on("message", (msg) => {
+        const text = JSON.parse(msg.toString());
+        messages.push(text);
+      });
+
+      ws.on("close", () => {
+        resolve();
+      });
+
+      ws.on("error", reject);
+    });
+
+    // Now messages[] contains the full lifecycle
+    expect(messages.length).toBeGreaterThan(0);
+
+    const firstMessage = messages[0];
+    const lastMessage = messages[messages.length - 1];
+
+    expect(firstMessage.type).toBe("snapshot");
+    expect(lastMessage.status === "failed").toBe(true);
+    expect(lastMessage.error.includes("Slippage tolerance")).toBe(true);
   });
 });
 
