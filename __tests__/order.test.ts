@@ -216,4 +216,26 @@ describe("Order websocket api validation", () => {
   });
 });
 
+describe("All order detatils", () => {
+  describe("GET /api/orders", () => {
+    it("should return an array of orders", async () => {
+      const res = await request(API_BASE_URL).get("/api/orders");
+
+      expect(res.status).toBe(200);
+
+      // Response must be an array
+      expect(Array.isArray(res.body)).toBe(true);
+
+      // If there are orders, check expected fields
+      if (res.body.length > 0) {
+        const order = res.body[0];
+
+        expect(order).toHaveProperty("id");
+        expect(order).toHaveProperty("status");
+        expect(order).toHaveProperty("updated_at");
+      }
+    });
+  });
+})
+
 
