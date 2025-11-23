@@ -11,8 +11,7 @@ export const OrdersController = {
 
     await ordersQueue.add(
       "execute",
-      { orderId, ...body },
-      { attempts: 3, backoff: { type: "exponential", delay: 1000 } }
+      { orderId, ...body }
     );
 
     return { orderId };

@@ -13,7 +13,7 @@ export function registerOrderSubscriber(fastify: FastifyInstance, wsClients: Map
 
             for (const conn of clients) {
                 conn.send(JSON.stringify(payload));
-                if (payload.status === "confirmed") conn.close(); // close all client
+                if (payload.status === "confirmed" || payload.status === "failed") conn.close(); // close all client
             }
         } catch (err) {
             fastify.log.error(err, "Invalid worker message");
