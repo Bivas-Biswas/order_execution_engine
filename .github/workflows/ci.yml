@@ -10,11 +10,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    services:
-      docker:
-        image: docker:25.0-dind
-        privileged: true
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,11 +25,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Build test images
+      - name: Build images
         run: docker compose -f docker-compose.yml build
 
-      - name: Start test stack
-        run: docker compose -f docker-compose.yml up -d postgres redis backend worker
+      - name: Start docker-compose stack
+        run: docker compose -f docker-compose.yml up -d
 
       - name: Wait for backend to be ready
         run: |
@@ -50,9 +45,9 @@ jobs:
           echo "Backend did not become ready in time."
           exit 1
 
-      - name: Run tests (host)
+      - name: Run tests
         run: pnpm test
 
-      - name: Shutdown containers
+      - name: Shutdown stack
         if: always()
         run: docker compose -f docker-compose.yml down -v
