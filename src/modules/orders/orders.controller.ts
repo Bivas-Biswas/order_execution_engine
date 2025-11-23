@@ -2,12 +2,15 @@ import { randomUUID } from "crypto";
 import { OrdersRepo } from "./orders.repo";
 import { ordersQueue } from "./orders.queue";
 import { OrderRequest } from "../../types/orders.types";
+import { redis } from "../../config/redis"
 
 export const OrdersController = {
   async executeOrder(body: OrderRequest) {
     const orderId = randomUUID();
 
     await OrdersRepo.create(orderId, body);
+
+    await redis.set(orderId, 1, "EX", 10);
 
     await ordersQueue.add(
       "execute",

@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest } from "fastify";
 import { redis } from "../../config/redis";
 import { Type, Static } from "@sinclair/typebox";
+import { OrdersController } from './orders.controller'
 
 const wsClients = new Map<string, Set<any>>();
 
@@ -14,7 +15,7 @@ export function registerOrderWS(fastify: FastifyInstance) {
     fastify.get<{ Querystring: WsQuery }>("/api/orders/ws", {
       websocket: true,
       schema: { querystring: WsQuerySchema }
-    }, (connection, req: FastifyRequest<{ Querystring: WsQuery }>) => {
+    }, async (connection, req: FastifyRequest<{ Querystring: WsQuery }>) => {
 
       if (!req.query) return connection.close();
 
@@ -27,8 +28,27 @@ export function registerOrderWS(fastify: FastifyInstance) {
       }
 
       // check already exist wsclients for this orderid
+      // orderId exist or not
       // new client for same orderid possible -> when same client multiple tab open
-      if (!wsClients.has(orderId)) wsClients.set(orderId, new Set());
+      if (!wsClients.has(orderId)) {
+
+        // Check Redis existence (fast check)
+        let exists = await redis.exists(orderId);
+
+        // If not in Redis, fall back to PostgreSQL
+        if (!exists) {
+          const row = await OrdersController.getOne(orderId);
+
+          if (!row) {
+            connection.send(JSON.stringify({ error: "Order not found" }));
+            connection.close();
+            return;
+          }
+        }
+        wsClients.set(orderId, new Set());
+      }
+
+      // add the connection to the corresponding orderId
       wsClients.get(orderId)!.add(connection);
 
       // getting the order from redis

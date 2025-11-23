@@ -138,3 +138,82 @@ describe("GET /api/orders/:id", () => {
   });
 });
 
+describe("Order websocket api validation", () => {
+  it("return Missing orderId", async () => {
+    const wsUrl = `${API_BASE_URL.replace("http", "ws")}/api/orders/ws?orderId=`;
+
+    let message: any = null;
+    let closed = false;
+    let errorCaught: any = null;
+
+    const ws = new WebSocket(wsUrl);
+
+    // Prevent unhandled rejections/throws
+    ws.on("error", (err) => {
+      errorCaught = true;
+    });
+
+    ws.on("message", (msg) => {
+      message = JSON.parse(msg.toString());
+    });
+
+    ws.on("close", () => {
+      closed = true;
+    });
+
+    // Wait for events to happen or timeout
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // Always close the socket to prevent events leaking after test ends
+    ws.close();
+
+    // If server sends an error message
+    const messageHasOrderIdError =
+      message && message.error === "Missing orderId";
+
+    // The server must either close OR send an error
+    expect(messageHasOrderIdError).toBe(true);
+    expect(closed).toBe(true);
+    expect(errorCaught).toBe(null);
+  });
+
+  it("return Order not found", async () => {
+    const wsUrl = `${API_BASE_URL.replace("http", "ws")}/api/orders/ws?orderId=random-orderId12121`;
+
+    let message: any = null;
+    let closed = false;
+    let errorCaught: any = null;
+
+    const ws = new WebSocket(wsUrl);
+
+    // Prevent unhandled rejections/throws
+    ws.on("error", (err) => {
+      errorCaught = true;
+    });
+
+    ws.on("message", (msg) => {
+      message = JSON.parse(msg.toString());
+    });
+
+    ws.on("close", () => {
+      closed = true;
+    });
+
+    // Wait for events to happen or timeout
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    // Always close the socket to prevent events leaking after test ends
+    ws.close();
+
+    // If server sends an error message
+    const messageHasError =
+      message && message.error === "Order not found";
+
+    // The server must either close OR send an error
+    expect(messageHasError).toBe(true);
+    expect(closed).toBe(true);
+    expect(errorCaught).toBe(null);
+  });
+});
+
+

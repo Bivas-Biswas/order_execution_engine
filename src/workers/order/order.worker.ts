@@ -46,10 +46,10 @@ const worker = new Worker(
       const best = await getBestQuote(inputMint, outputMint, amount);
 
       loggerDex("INFO", orderId, 'BestQuote selected: ' + best);
-      
+
       // building
       await publishStatus(orderId, "building");
-      
+
       loggerDex("INFO", orderId, 'Creating transaction: ' + best);
       // create transaction
       await mockCreateTransaction();
@@ -118,6 +118,10 @@ const worker = new Worker(
       await publishStatus(orderId, "failed", { error: msg });
 
       throw err; // ensures BullMQ marks job as failed
+    } finally {
+
+      // remove the orderId from redis
+      await redis.del(orderId);
     }
   },
   {
