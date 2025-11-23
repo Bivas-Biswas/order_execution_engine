@@ -3,7 +3,8 @@ import { randomUUID } from 'crypto';
 export type DexQuote = {
     venue: 'Raydium' | 'Meteora';
     price: number; // output per 1 input
-    liquidity: number; // fake liquidity metric
+    liquidity: number; // fake liquidity metric,
+    expectedOut: number;
 };
 
 export function sleep(ms: number) {
@@ -11,19 +12,19 @@ export function sleep(ms: number) {
 }
 
 export async function getMockQuote(venue: 'Raydium' | 'Meteora', input: string, output: string, amount: number): Promise<DexQuote> {
-    // Simulate network / on-chain quote delay
-    const delay = 1500 + Math.floor(Math.random() * 2000); // 1-3s
+    const delay = 1500 + Math.floor(Math.random() * 2000);
     await sleep(delay);
 
-    // base price (mocked). We'll make Meteora slightly better on average.
     const base = venue === 'Meteora' ? 25 : 24.5;
 
-    // add jitter -5% .. +5%
     const jitter = 1 + (Math.random() * 0.1 - 0.05);
     const price = +(base * jitter).toFixed(6);
+
     const liquidity = 1000 + Math.floor(Math.random() * 10000);
 
-    return { venue, price, liquidity };
+    const expectedOut = +(price * amount).toFixed(6);
+
+    return { venue, price, liquidity, expectedOut };
 }
 
 
@@ -47,18 +48,34 @@ export function setMockSwapFailureChance(pct: number) {
     mockSwapFailureChance = Math.max(0, Math.min(1, pct));
 }
 
-export async function mockExecuteSwap(
+type mockExecuteSwap = {
     venue: "Raydium" | "Meteora",
     input: string,
     output: string,
     amount: number,
-    slippagePct = 0.5
-) {
-    // Roll for failure
-    const failureRoll = Math.random();
+    expectedOut: number,
+    slippagePct: number
+}
 
+export async function mockExecuteSwap({
+    venue,
+    input,
+    output,
+    amount,
+    expectedOut,
+    slippagePct = 0.5
+}: mockExecuteSwap
+) {
+    // Reject extremely tiny slippage (too strict)
+    if (slippagePct < 0.01) {
+        return {
+            error: `Slippage tolerance ${slippagePct}% is too small to execute a trade`
+        };
+    }
+    
+    // Random failure injection
+    const failureRoll = Math.random();
     if (failureRoll < mockSwapFailureChance) {
-        // Pick a random mock error
         const errors = [
             `${venue} RPC timeout`,
             `${venue} insufficient liquidity for pair ${input}/${output}`,
@@ -67,22 +84,32 @@ export async function mockExecuteSwap(
             `${venue} transaction simulation failed`,
         ];
 
-        const msg = errors[Math.floor(Math.random() * errors.length)];
-        throw new Error(msg);
+        return {
+            error: errors[Math.floor(Math.random() * errors.length)]
+        }
     }
 
-    // Simulated network latency
     await new Promise((r) => setTimeout(r, 100 + Math.random() * 250));
 
-    // Fake tx hash
-    const txHash = `mock_tx_${randomUUID().slice(0, 12)}`;
+    // Simulate real market movement between quote and execution
+    const executionMovement = 1 + (Math.random() * 0.04 - 0.02); // -2% to +2%
+    const executionOut = +(expectedOut * executionMovement).toFixed(6);
 
-    // Mock execution price
-    const base = venue === "Meteora" ? 25 : 24.5;
-    const jitter = 1 + (Math.random() * 0.01 - 0.005);
-    const executionPrice = +(
-        base * jitter * (1 - slippagePct / 100)
-    ).toFixed(6);
+    // Slippage limit
+    const minAcceptableOut = +(expectedOut * (1 - slippagePct / 100)).toFixed(6);
 
-    return { txHash, executionPrice };
+    // If execution worse than allowed slippage -> fail
+    if (executionOut < minAcceptableOut) {
+        // throw new Error("Execution worse than allowed slippage");
+        return {
+            error: "Execution worse than allowed slippage"
+        }
+    }
+
+    // Otherwise success
+    return {
+        txHash: `mock_tx_${randomUUID().slice(0, 12)}`,
+        executionOut,
+        executionPrice: +(executionOut / amount).toFixed(6),
+    };
 }

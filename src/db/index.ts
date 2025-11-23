@@ -10,7 +10,7 @@ export const pool = new Pool({ connectionString });
 
 
 export async function initDb() {
-    const filePath = path.join(__dirname, "../migrations/002_create_order.sql");
+    const filePath = path.join(__dirname, "../migrations/003_create_orders.sql");
 
     const sql = await readFile(filePath, "utf8");
 
