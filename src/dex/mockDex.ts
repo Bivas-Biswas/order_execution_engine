@@ -41,7 +41,7 @@ export async function mockCreateTransaction() {
 }
 
 // Set failure chance globally (0 = never fail, 1 = always fail)
-export let mockSwapFailureChance = 0.9;  // 25% default
+export let mockSwapFailureChance = 0.10;  // 10% default
 
 export function setMockSwapFailureChance(pct: number) {
     mockSwapFailureChance = Math.max(0, Math.min(1, pct));
