@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      docker:
+        image: docker:25.0-dind
+        privileged: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Build test images
+        run: docker compose -f docker-compose.yml build
+
+      - name: Start test stack
+        run: docker compose -f docker-compose.yml up -d postgres redis backend worker
+
+      - name: Wait for backend to be ready
+        run: |
+          echo "Waiting for backend on port 3000..."
+          for i in {1..30}; do
+            if curl -s http://localhost:3000/api/test >/dev/null; then
+              echo "Backend ready."
+              exit 0
+            fi
+            echo "Not ready yet..."
+            sleep 3
+          done
+          echo "Backend did not become ready in time."
+          exit 1
+
+      - name: Run tests (host)
+        run: pnpm test
+
+      - name: Shutdown containers
+        if: always()
+        run: docker compose -f docker-compose.yml down -v
