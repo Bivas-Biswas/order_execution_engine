@@ -4,7 +4,7 @@ async function run() {
   const res = await fetch("http://localhost:3000/api/orders/execute", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ inputMint: "SOL", outputMint: "USDC", amount: 1.5, slippage_pct: 0.00001 }), 
+    body: JSON.stringify({ inputMint: "SOL", outputMint: "USDC", amount: 1.5, slippage_pct: 0.1 }), 
     // I want to swap 1.5 SOL to USDC with slippagePac 0.5(default)
   });
 
