@@ -2,7 +2,6 @@
 
 An mock order execution engine that processes ONE order type with mockDEX routing and WebSocket status updates.
 
-
 ## Engine in Action
 
 ![System Demo](./images/order_demo.gif)
@@ -20,62 +19,62 @@ sudo docker compose up --build
 2. Now server is running at `localhost:3000`
 
 3. Run the examples
-    - Web UI open this file in the browser
-    ```
-    examples/index.html
-    ```
-    - standalone client node
-    ```
-    node examples/client.js
-    ```
+   - Web UI open this file in the browser
+
+   ```
+   examples/index.html
+   ```
+
+   - standalone client node
+
+   ```
+   node examples/client.js
+   ```
 
 ## How to run test
 
 1. First run the server as mentioned above because all test are integration test
 
 2. Run the test runner
-    ```
-    pnpm run test
-    ```
+   ```
+   pnpm run test
+   ```
 
 ## Design Decisions
 
-* **Select Order Type as Market Order**
-    It is most important and heavily used, in any Order Execution Engine. Also other two type of order Limit and Sniper are layer top of this.
+- **Select Order Type as Market Order**
+  It is most important and heavily used, in any Order Execution Engine. Also other two type of order Limit and Sniper are layer top of this.
 
-* **Separation of concern + scalability**
+- **Separation of concern + scalability**
   Backend, worker, Postgres, and Redis run as independent services, each in its own container, allowing them to scale independently based on load.
 
-* **Redis usage**
-  * Stores active orders with TTL for fast existence checks
-  * Acts as the BullMQ backing store (queue + retries + job state)
-  * Provides a pub/sub channel (`order_updates`) where the worker publishes lifecycle events and the backend WebSocket server subscribes
+- **Redis usage**
+  - Stores active orders with TTL for fast existence checks
+  - Acts as the BullMQ backing store (queue + retries + job state)
+  - Provides a pub/sub channel (`order_updates`) where the worker publishes lifecycle events and the backend WebSocket server subscribes
 
-* **WebSocket behavior after order completion**
+- **WebSocket behavior after order completion**
   To handle clients connecting after an order is already confirmed/failed, Redis is used to keep a temporary key. if the key exists, the backend serves the snapshot, and if it expired, the WebSocket connection is rejected immediately, preventing stale or invalid listeners.
 
-* **All tests are integration tests**
-    This system’s behavior depends on how the backend, worker, Redis, and Postgres interact, so full integration tests provide far more value than isolated unit tests.
+- **All tests are integration tests**
+  This system’s behavior depends on how the backend, worker, Redis, and Postgres interact, so full integration tests provide far more value than isolated unit tests.
 
-* **Order creation happen in postgresql before sent the orderId to the client**
-    In my current flow when client post order it insert inside the postgress, then add to the queue. This 
+- **Order creation happen in postgresql before sent the orderId to the client**
+  In my current flow when client post order it insert inside the postgress, then add to the queue. This
 
 ## How my current design adaptable to other two order type:
 
 1. **Limit Order — Execute when target price is reached**
-
-   * Fits naturally into the existing API/worker split: store target price, let the worker watch quotes, and trigger execution when the condition is met.
-   * Reuses the same routing and execution path as market orders.
+   - Fits naturally into the existing API/worker split: store target price, let the worker watch quotes, and trigger execution when the condition is met.
+   - Reuses the same routing and execution path as market orders.
      **Challenges:** designing the price watcher, choosing where to store pending orders, and handling many orders triggering at once.
 
 2. **Sniper Order — Execute on token launch/migration**
-
-   * Worker listens for on-chain events (liquidity added, pool created) and fires the order instantly.
-   * Reuses the same execution pipeline as market orders.
+   - Worker listens for on-chain events (liquidity added, pool created) and fires the order instantly.
+   - Reuses the same execution pipeline as market orders.
      **Challenges:** building a fast event watcher and managing bursts of simultaneous triggers.
 
 Both order types simply add a small condition layer on top of the existing market order execution engine.
-
 
 ## Additional Deliverables
 
@@ -108,11 +107,10 @@ Both order types simply add a small condition layer on top of the existing marke
 - **Vitest + Supertest** — Integration testing of API + WebSocket + worker flows.
 - **TypeScript** — Strong typing and safer API/worker code.
 
-
 ## My Humble experience
 
 1. This is the first time I've coded up a system from scratch in terms of scale and adaptivity. Before this, I had only theoretical knowledge of the system.
-2. I used redis's multiple features all togethers so much. 
+2. I used redis's multiple features all togethers so much.
 3. Also, first-time experience of Fastify, Bullmq.
 4. Enjoy the last 15+hrs to building this.
 5. All this is possible because of ChatGPT, which reduces the research time.

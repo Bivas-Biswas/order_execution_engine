@@ -19,7 +19,7 @@ services:
       - postgres
       - redis
     ports:
-      - "3000:3000"
+      - '3000:3000'
     networks:
       - devnet
 

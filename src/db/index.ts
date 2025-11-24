@@ -1,6 +1,6 @@
+import { readFile } from 'fs/promises';
+import path from 'path';
 import { Pool } from 'pg';
-import { readFile } from "fs/promises";
-import path from "path";
 
 import { env } from '../config/env';
 
@@ -8,15 +8,12 @@ const connectionString = env.db.url;
 
 export const pool = new Pool({ connectionString });
 
-
 export async function initDb() {
-    const filePath = path.join(__dirname, "../migrations/003_create_orders.sql");
+  const filePath = path.join(__dirname, '../migrations/003_create_orders.sql');
 
-    const sql = await readFile(filePath, "utf8");
+  const sql = await readFile(filePath, 'utf8');
 
-    await pool.query(sql);
+  await pool.query(sql);
 }
 
-
 export default pool;
-

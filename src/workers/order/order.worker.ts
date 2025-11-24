@@ -1,29 +1,21 @@
-import { Worker, JobScheduler } from "bullmq";
-import { getBestQuote, mockExecuteSwap, mockCreateTransaction } from "../../dex/mockDex";
-import { dbPool, redis, redisPub, redisConn } from './redis.order.worker'
+import { JobScheduler, Worker } from 'bullmq';
 
-new JobScheduler("orders", { connection: redisConn });
+import { getBestQuote, mockCreateTransaction, mockExecuteSwap } from '../../dex/mockDex';
+import { dbPool, redis, redisConn, redisPub } from './redis.order.worker';
+
+new JobScheduler('orders', { connection: redisConn });
 
 const concurrency = +(process.env.WORKER_CONCURRENCY || 5);
 
-const publishStatus = async (orderId: string, status: string, extra: any = {}) => {
-
+const publishStatus = async (orderId: string, status: string, extra: object = {}) => {
   // Update Redis snapshot for order
   await redis.hset(
     `order:${orderId}`,
-    Object.fromEntries(
-      Object.entries({ status, ...extra }).map(([k, v]) => [
-        k,
-        String(v)
-      ])
-    )
+    Object.fromEntries(Object.entries({ status, ...extra }).map(([k, v]) => [k, String(v)])),
   );
 
   // Publish update to server
-  await redisPub.publish(
-    "order_updates",
-    JSON.stringify({ orderId, status, ...extra })
-  );
+  await redisPub.publish('order_updates', JSON.stringify({ orderId, status, ...extra }));
 };
 
 const loggerDex = (type: 'INFO' | 'ERROR', orderId: string, msg: string) => {
@@ -32,31 +24,35 @@ const loggerDex = (type: 'INFO' | 'ERROR', orderId: string, msg: string) => {
   } else {
     console.error(`[${type}][DEX:${type}:${orderId}] ${msg}`);
   }
-}
+};
 
 const worker = new Worker(
-  "orders",
+  'orders',
   async (job) => {
     const { orderId, inputMint, outputMint, amount, slippage_pct } = job.data;
 
     try {
       // ROUTING
-      await publishStatus(orderId, "routing");
-      loggerDex("INFO", orderId, "Routing started");
+      await publishStatus(orderId, 'routing');
+      loggerDex('INFO', orderId, 'Routing started');
 
       const best = await getBestQuote(inputMint, outputMint, amount);
 
-      loggerDex("INFO", orderId, `BestQuote selected: ${best.venue} price=${best.price} expectedOut=${best.expectedOut}`);
+      loggerDex(
+        'INFO',
+        orderId,
+        `BestQuote selected: ${best.venue} price=${best.price} expectedOut=${best.expectedOut}`,
+      );
 
       // BUILDING
-      await publishStatus(orderId, "building");
-      loggerDex("INFO", orderId, `Creating transaction for ${best.venue}`);
+      await publishStatus(orderId, 'building');
+      loggerDex('INFO', orderId, `Creating transaction for ${best.venue}`);
 
       await mockCreateTransaction();
 
       // SUBMITTING
-      loggerDex("INFO", orderId, "Submitting transaction");
-      await publishStatus(orderId, "submitted");
+      loggerDex('INFO', orderId, 'Submitting transaction');
+      await publishStatus(orderId, 'submitted');
 
       // EXECUTION (RETRY + SLOW MARKET + SLIPPAGE PROTECTION)
       const handleMockExecute = async () => {
@@ -69,7 +65,7 @@ const worker = new Worker(
             output: outputMint,
             amount,
             expectedOut: best.expectedOut,
-            slippagePct: slippage_pct
+            slippagePct: slippage_pct,
           });
 
           // SUCCESS
@@ -80,15 +76,15 @@ const worker = new Worker(
           // FAILURE
           lastError = exec.error;
           loggerDex(
-            "ERROR",
+            'ERROR',
             orderId,
-            `Execution failed: ${exec.error}. Retrying attempt ${attempt}/3...`
+            `Execution failed: ${exec.error}. Retrying attempt ${attempt}/3...`,
           );
 
           await new Promise((r) => setTimeout(r, attempt * 500)); // exponential backoff
         }
 
-        return { error: lastError ?? "Unknown execution failure" };
+        return { error: lastError ?? 'Unknown execution failure' };
       };
 
       const exec = await handleMockExecute();
@@ -106,24 +102,22 @@ const worker = new Worker(
          execution_price=$3,
          updated_at = now()
      WHERE id=$4`,
-        ["confirmed", exec.txHash, exec.executionPrice, orderId]
+        ['confirmed', exec.txHash, exec.executionPrice, orderId],
       );
 
-      loggerDex("INFO", orderId, "Transaction confirmed");
+      loggerDex('INFO', orderId, 'Transaction confirmed');
 
-      await publishStatus(orderId, "confirmed", {
+      await publishStatus(orderId, 'confirmed', {
         txHash: exec.txHash,
         executionPrice: exec.executionPrice,
-        venue: best.venue
+        venue: best.venue,
       });
 
       return { txHash: exec.txHash };
-
-    } catch (err: any) {
-
+    } catch (err: Error) {
       // ANY FAILURE FALLS HERE
       const msg = err?.message || String(err);
-      loggerDex("ERROR", orderId, msg);
+      loggerDex('ERROR', orderId, msg);
 
       await dbPool.query(
         `UPDATE orders
@@ -131,13 +125,12 @@ const worker = new Worker(
          error=$2,
          updated_at = now()
      WHERE id=$3`,
-        ["failed", msg, orderId]
+        ['failed', msg, orderId],
       );
 
-      await publishStatus(orderId, "failed", { error: msg });
+      await publishStatus(orderId, 'failed', { error: msg });
 
       throw err; // tell BullMQ job failed
-
     } finally {
       // ALWAYS CLEAN REDIS
       await redis.del(orderId);
@@ -145,12 +138,12 @@ const worker = new Worker(
   },
   {
     concurrency,
-    connection: redisConn
-  }
+    connection: redisConn,
+  },
 );
 
-worker.on("failed", (job, err) => {
+worker.on('failed', (job, err) => {
   console.error(`Job failed: ${job?.id}`, err);
 });
 
-console.log("Worker started");
+console.log('Worker started');

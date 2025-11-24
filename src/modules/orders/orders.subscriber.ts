@@ -1,24 +1,26 @@
-import { redisSub } from "../../config/redis";
-import { FastifyInstance } from "fastify";
+import { FastifyInstance } from 'fastify';
 
-export function registerOrderSubscriber(fastify: FastifyInstance, wsClients: Map<string, Set<any>>) {
-    redisSub.on("message", (channel, message) => {
-        if (channel !== "order_updates") return;
+import { redisSub } from '../../config/redis';
+import { WSClients } from '../../types/orders.types';
 
-        try {
-            const payload = JSON.parse(message);
-            const { orderId } = payload;
-            const clients = wsClients.get(orderId); // muticlient for same order
-            if (!clients) return;
+export function registerOrderSubscriber(fastify: FastifyInstance, wsClients: WSClients) {
+  redisSub.on('message', (channel, message) => {
+    if (channel !== 'order_updates') return;
 
-            for (const conn of clients) {
-                conn.send(JSON.stringify(payload));
-                if (payload.status === "confirmed" || payload.status === "failed") conn.close(); // close all client
-            }
-        } catch (err) {
-            fastify.log.error(err, "Invalid worker message");
-        }
-    });
+    try {
+      const payload = JSON.parse(message);
+      const { orderId } = payload;
+      const clients = wsClients.get(orderId); // muticlient for same order
+      if (!clients) return;
 
-    redisSub.subscribe("order_updates");
+      for (const conn of clients) {
+        conn.send(JSON.stringify(payload));
+        if (payload.status === 'confirmed' || payload.status === 'failed') conn.close(); // close all client
+      }
+    } catch (err) {
+      fastify.log.error(err, 'Invalid worker message');
+    }
+  });
+
+  redisSub.subscribe('order_updates');
 }
