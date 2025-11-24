@@ -139,6 +139,71 @@ describe("Order Execution + WebSocket full flow", () => {
     expect(lastMessage.status === "failed").toBe(true);
     expect(lastMessage.error.includes("Slippage tolerance")).toBe(true);
   });
+
+  it("reject when old order try to connect through websocket", async () => {
+    const res = await request(API_BASE_URL)
+      .post("/api/orders/execute")
+      .send({
+        inputMint: "SOL",
+        outputMint: "USDC",
+        amount: 1.5
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.orderId).toBeDefined();
+
+    const orderId = res.body.orderId;
+
+    const wsUrl = `${API_BASE_URL.replace("http", "ws")}/api/orders/ws?orderId=${orderId}`;
+    const ws = new WebSocket(wsUrl);
+
+    let messages: any[] = [];
+
+    // Collect messages until socket closes
+    await new Promise<void>((resolve, reject) => {
+      ws.on("message", (msg) => {
+        const text = JSON.parse(msg.toString());
+        messages.push(text);
+      });
+
+      ws.on("close", () => {
+        resolve();
+      });
+
+      ws.on("error", reject);
+    });
+
+    // Now messages[] contains the full lifecycle
+    expect(messages.length).toBeGreaterThan(0);
+
+    const firstMessage = messages[0];
+    const lastMessage = messages[messages.length - 1];
+
+    expect(firstMessage.type).toBe("snapshot");
+
+    expect(
+      lastMessage.status === "confirmed" || lastMessage.status === "failed"
+    ).toBe(true);
+
+
+    // try for old order
+    messages = [];
+    const newWs = new WebSocket(wsUrl);
+    await new Promise<void>((resolve, reject) => {
+      newWs.on("message", (msg) => {
+        const text = JSON.parse(msg.toString());
+        messages.push(text);
+      });
+
+      newWs.on("close", () => {
+        resolve();
+      });
+
+      newWs.on("error", reject);
+    });
+
+    expect(messages[messages.length - 1].error).toBe("Order already processed");
+  });
 });
 
 describe("GET /api/orders/:id", () => {

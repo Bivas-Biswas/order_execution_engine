@@ -39,8 +39,17 @@ export function registerOrderWS(fastify: FastifyInstance) {
         if (!exists) {
           const row = await OrdersController.getOne(orderId);
 
+          // order not exisit
           if (!row) {
             connection.send(JSON.stringify({ error: "Order not found" }));
+            connection.close();
+            return;
+          }
+
+          // it may possilbe it is a old order try to
+          // connect through ws
+          if (row.status === "failed" || row.status === "confirmed") {
+            connection.send(JSON.stringify({ error: "Order already processed" }));
             connection.close();
             return;
           }
