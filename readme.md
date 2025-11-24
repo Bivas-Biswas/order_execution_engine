@@ -7,7 +7,7 @@ An mock order execution engine that processes ONE order type with mockDEX routin
 
 ![System Demo](./images/order_demo.gif)
 
----
+[Click here to see the whole demo video](youtube.com/watch?v=hnhcxS_VFW4)
 
 ## How to Run
 
@@ -28,7 +28,6 @@ sudo docker compose up --build
     ```
     node examples/client.js
     ```
----
 
 ## How to run test
 
@@ -38,7 +37,6 @@ sudo docker compose up --build
     ```
     pnpm run test
     ```
----
 
 ## Design Decisions
 
@@ -59,9 +57,10 @@ sudo docker compose up --build
 * **All tests are integration tests**
     This system’s behavior depends on how the backend, worker, Redis, and Postgres interact, so full integration tests provide far more value than isolated unit tests.
 
----
+* **Order creation happen in postgresql before sent the orderId to the client**
+    In my current flow when client post order it insert inside the postgress, then add to the queue. This 
 
-## How my current design adaptable to order two order type:
+## How my current design adaptable to other two order type:
 
 1. **Limit Order — Execute when target price is reached**
 
@@ -77,7 +76,6 @@ sudo docker compose up --build
 
 Both order types simply add a small condition layer on top of the existing market order execution engine.
 
----
 
 ## Additional Deliverables
 
@@ -85,8 +83,6 @@ Both order types simply add a small condition layer on top of the existing marke
 2. 15+ integration tests covering backend, worker, Redis, Postgres, and WebSocket flows.
 3. GitHub Actions CI pipeline for automated testing on every push and pull request.
 4. Simple Web UI included for testing and demonstration of order flow.
-
----
 
 ## System Diagrams and API
 
@@ -112,12 +108,11 @@ Both order types simply add a small condition layer on top of the existing marke
 - **Vitest + Supertest** — Integration testing of API + WebSocket + worker flows.
 - **TypeScript** — Strong typing and safer API/worker code.
 
----
 
-## My humble experience
+## My Humble experience
 
-- This is first time i built a system from scratch interms of scale and adaptibity. I have only theortical knowledge of system.
-- I used redis's multiple features all togethers so much.
-- Also first time experience of fastify, Bullmq.
-- Enjoy the last 15+hrs to building this.
-- All this possbile because of chatGPT it reduce the research time.
+1. This is the first time I've coded up a system from scratch in terms of scale and adaptivity. Before this, I had only theoretical knowledge of the system.
+2. I used redis's multiple features all togethers so much. 
+3. Also, first-time experience of Fastify, Bullmq.
+4. Enjoy the last 15+hrs to building this.
+5. All this is possible because of ChatGPT, which reduces the research time.
