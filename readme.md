@@ -80,7 +80,7 @@ Both order types simply add a small condition layer on top of the existing marke
 
 1. Fully containerized setup — the entire system runs easily on any machine via Docker.
 2. 15+ integration tests covering backend, worker, Redis, Postgres, and WebSocket flows.
-3. GitHub Actions CI pipeline for automated testing on every push and pull request.
+3. GitHub Actions CI pipeline for automated formatter, linting, testing check on every push and pull request.
 4. Simple Web UI included for testing and demonstration of order flow.
 
 ## System Diagrams and API
@@ -92,8 +92,6 @@ Both order types simply add a small condition layer on top of the existing marke
 3. [WebSocket Order Flow](./images/ws_order_flow.png)
 
 4. [Postman API Collection](https://martian-escape-203806.postman.co/workspace/Order-Execution-Engine~2829cea7-132b-4dee-a974-ae2f3b863c13/collection/17405007-dfd4637c-7c7d-4dd0-bfe8-c5c2d6094970?action=share&creator=17405007&active-environment=17405007-bb2a3440-e63a-44a6-adf7-fae5a1056a1c)
-
----
 
 ## Technology used
 
