@@ -1,6 +1,6 @@
 # Order Execution Engine
 
-An mock order execution engine that processes ONE order type with mockDEX routing and WebSocket status updates.
+An mock order execution engine that processes Marker Order type with mockDEX routing and WebSocket status updates.
 
 ## Engine in Action
 
